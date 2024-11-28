@@ -1,0 +1,7 @@
+.menu-item {
+  padding: 8px 16px;
+}
+
+.menu-item.delete {
+  color: red;
+}

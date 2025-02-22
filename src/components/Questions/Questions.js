@@ -3,7 +3,7 @@ import { List, ListItem, Typography, Accordion, AccordionSummary, AccordionDetai
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddQuestionModal from "./AddQuestionModal";
 import QuestionMenu from "./QuestionMenu";
-import { fetchQuestions, addQuestion, deleteQuestion, updateQuestion } from "../../services/api";
+import { addQuestion, deleteQuestion, updateQuestion } from "../../services/api";
 import "./Questions.css";
 import ReactMarkdown from "react-markdown";
 import { Light as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -13,20 +13,23 @@ import { IconButton, Box } from "@mui/material";
 
 
 
-const Questions = () => {
+const Questions = ( {fetchMethod} ) => {
   const [questions, setQuestions] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [newQuestionData, setNewQuestionData] = useState({ title: "", answer: "" });
   const [editingId, setEditingId] = useState(null); // Track the ID of the question being edited
   const [formData, setFormData] = useState({ title: "", answer: "" }); // Store the form data for editing
+  const [searchQuery, setSearchQuery] = useState(""); // State for search query
+
 
   useEffect(() => {
     const loadQuestions = async () => {
-      const data = await fetchQuestions();
-      setQuestions(data.items);
+      const data = await fetchMethod();
+      const normalizedData = Array.isArray(data) ? data : [data];
+      setQuestions(normalizedData);
     };
     loadQuestions();
-  }, []);
+  }, [fetchMethod]);
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -85,6 +88,14 @@ const Questions = () => {
     }
   };
 
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
+  };
+  
+  const filteredQuestions = questions.filter((question) =>
+    question.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="questions-container">
       <Typography variant="h4" className="questions-title">
@@ -98,6 +109,14 @@ const Questions = () => {
       >
         Add New Question
       </Button>
+      <TextField
+        label="Search Questions"
+        variant="outlined"
+        fullWidth
+        style={{ marginBottom: "16px" }}
+        value={searchQuery}
+        onChange={handleSearchChange}
+      />
       <AddQuestionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -105,7 +124,7 @@ const Questions = () => {
         newQuestionData={newQuestionData}
         setNewQuestionData={setNewQuestionData}
       />
-        {questions.map((question) => (
+        {filteredQuestions.map((question) => (
             <Accordion className="accordion" key={question.id}>
               <AccordionSummary
                 className="accordion-summary"

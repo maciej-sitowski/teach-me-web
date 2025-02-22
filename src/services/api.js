@@ -9,6 +9,12 @@ export const fetchQuestions = async () => {
     return response.json();
 };
 
+export const fetchRandomQuestion = async () => {
+    const response = await fetch(`${API_URL}/questions/random/`);
+    if (!response.ok) throw new Error("Failed to fetch questions");
+    return response.json();
+};
+
 export const addQuestion = async (question) => {
     const response = await fetch(`${API_URL}/questions/`, {
         method: "POST",

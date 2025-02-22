@@ -25,7 +25,7 @@ const Questions = ( {fetchMethod} ) => {
   useEffect(() => {
     const loadQuestions = async () => {
       const data = await fetchMethod();
-      const normalizedData = Array.isArray(data) ? data : [data];
+      const normalizedData = data.items ? data.items : [data];
       setQuestions(normalizedData);
     };
     loadQuestions();

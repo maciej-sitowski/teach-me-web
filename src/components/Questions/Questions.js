@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { List, ListItem, Typography, Accordion, AccordionSummary, AccordionDetails, Button, TextField } from "@mui/material";
+import { Typography, Accordion, AccordionSummary, AccordionDetails, Button, TextField } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddQuestionModal from "./AddQuestionModal";
 import QuestionMenu from "./QuestionMenu";
@@ -182,7 +182,7 @@ const Questions = ( {fetchMethod} ) => {
                     </div>
                   </>
                 ) : (
-                  <ReactMarkdown className='markdown-container'
+                  <ReactMarkdown
                     components={{
                       code({ node, inline, className, children, ...props }) {
                         const match = /language-(\w+)/.exec(className || "");

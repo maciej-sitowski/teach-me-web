@@ -2,15 +2,18 @@ const API_URL = process.env.REACT_APP_API_URL;
 
 console.log(process.env)
 
-
 export const fetchQuestions = async () => {
     const response = await fetch(`${API_URL}/questions/`);
     if (!response.ok) throw new Error("Failed to fetch questions");
     return response.json();
 };
 
-export const fetchRandomQuestion = async () => {
-    const response = await fetch(`${API_URL}/questions/random/`);
+export const fetchRandomQuestion = async (tag) => {
+    let url = `${API_URL}/questions/random/`;
+    if (tag) {
+        url += `?tag=${encodeURIComponent(tag)}`;
+    }
+    const response = await fetch(url);
     if (!response.ok) throw new Error("Failed to fetch questions");
     return response.json();
 };

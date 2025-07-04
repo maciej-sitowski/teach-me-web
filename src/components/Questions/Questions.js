@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Typography, Accordion, AccordionSummary, AccordionDetails, Button, TextField } from "@mui/material";
+import { Typography, Accordion, AccordionSummary, AccordionDetails, Button, TextField, Select, MenuItem, InputLabel, FormControl, LinearProgress, Snackbar, Alert } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddQuestionModal from "./AddQuestionModal";
 import QuestionMenu from "./QuestionMenu";
@@ -20,16 +20,60 @@ const Questions = ( {fetchMethod} ) => {
   const [editingId, setEditingId] = useState(null); // Track the ID of the question being edited
   const [formData, setFormData] = useState({ title: "", answer: "" }); // Store the form data for editing
   const [searchQuery, setSearchQuery] = useState(""); // State for search query
+  const [selectedTag, setSelectedTag] = useState(""); // State for selected tag
+  // Detect if fetchMethod is fetchRandomQuestion
+  const isRandom = fetchMethod && fetchMethod.name === "fetchRandomQuestion";
 
+  // Count how many times random question was loaded (persisted per day)
+  const [randomCount, setRandomCount] = useState(0);
+
+  // Snackbar for daily goal
+  const [goalOpen, setGoalOpen] = useState(false);
+
+  // Daily goal state (persisted in localStorage)
+  const [dailyGoal, setDailyGoal] = useState(() => {
+    const stored = localStorage.getItem("randomQuestionDailyGoal");
+    return stored ? parseInt(stored, 10) : 10;
+  });
+
+  // Helper to get today's date as YYYY-MM-DD
+  const getToday = () => new Date().toISOString().slice(0, 10);
+
+  // On mount, initialize counter from localStorage if random mode
+  useEffect(() => {
+    if (isRandom) {
+      const stored = JSON.parse(localStorage.getItem("randomQuestionCounter") || '{}');
+      if (stored.date === getToday()) {
+        setRandomCount(stored.count || 1);
+      } else {
+        setRandomCount(1);
+        localStorage.setItem("randomQuestionCounter", JSON.stringify({ date: getToday(), count: 1 }));
+      }
+    } else {
+      setRandomCount(0);
+    }
+  }, [isRandom, selectedTag]);
+
+  // Handler for fetching next random question
+  const handleNextQuestion = async () => {
+    const data = await fetchMethod(selectedTag);
+    const normalizedData = data.items ? data.items : [data];
+    setQuestions(normalizedData);
+    setRandomCount((prev) => {
+      const next = prev + 1;
+      localStorage.setItem("randomQuestionCounter", JSON.stringify({ date: getToday(), count: next }));
+      return next;
+    });
+  };
 
   useEffect(() => {
     const loadQuestions = async () => {
-      const data = await fetchMethod();
+      const data = await fetchMethod(selectedTag);
       const normalizedData = data.items ? data.items : [data];
       setQuestions(normalizedData);
     };
     loadQuestions();
-  }, [fetchMethod]);
+  }, [fetchMethod, selectedTag]);
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -92,31 +136,76 @@ const Questions = ( {fetchMethod} ) => {
     setSearchQuery(event.target.value);
   };
   
-  const filteredQuestions = questions.filter((question) =>
-    question.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Allowed tags
+  const allowedTags = ["kubernetes", "fastapi"];
+
+  // No frontend filtering, just use questions as is
+  const displayedQuestions = questions;
+
+  // Handler to change daily goal
+  const handleGoalChange = (e) => {
+    const value = Math.max(1, parseInt(e.target.value, 10) || 1);
+    setDailyGoal(value);
+    localStorage.setItem("randomQuestionDailyGoal", value);
+  };
+
+  // Handler to reset counter
+  const handleResetCounter = () => {
+    setRandomCount(0);
+    localStorage.setItem("randomQuestionCounter", JSON.stringify({ date: getToday(), count: 0 }));
+  };
+
+  useEffect(() => {
+    if (isRandom && randomCount === dailyGoal) {
+      setGoalOpen(true);
+    }
+  }, [isRandom, randomCount, dailyGoal]);
 
   return (
     <div className="questions-container">
-      <Typography variant="h4" className="questions-title">
+      <Typography variant="h4" className="questions-title" style={{ marginBottom: 24 }}>
         Questions
       </Typography>
-      <Button
-        variant="contained"
-        color="primary"
-        style={{ marginBottom: "16px" }}
-        onClick={() => setModalOpen(true)}
-      >
-        Add New Question
-      </Button>
-      <TextField
-        label="Search Questions"
-        variant="outlined"
-        fullWidth
-        style={{ marginBottom: "16px" }}
-        value={searchQuery}
-        onChange={handleSearchChange}
-      />
+      {/* Controls Row */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setModalOpen(true)}
+        >
+          Add New Question
+        </Button>
+        {isRandom && (
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleNextQuestion}
+          >
+            Next question
+          </Button>
+        )}
+        <TextField
+          label="Search Questions"
+          variant="outlined"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          style={{ minWidth: 200, flex: 1 }}
+        />
+        <FormControl style={{ minWidth: 150 }}>
+          <InputLabel id="tag-filter-label">Filter by Tag</InputLabel>
+          <Select
+            labelId="tag-filter-label"
+            value={selectedTag}
+            label="Filter by Tag"
+            onChange={e => setSelectedTag(e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            {allowedTags.map(tag => (
+              <MenuItem key={tag} value={tag}>{tag}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </div>
       <AddQuestionModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -124,7 +213,7 @@ const Questions = ( {fetchMethod} ) => {
         newQuestionData={newQuestionData}
         setNewQuestionData={setNewQuestionData}
       />
-        {filteredQuestions.map((question) => (
+        {displayedQuestions.map((question) => (
             <Accordion className="accordion" key={question.id}>
               <AccordionSummary
                 className="accordion-summary"
@@ -237,6 +326,39 @@ const Questions = ( {fetchMethod} ) => {
 
             </Accordion>
         ))}
+      {/* Move counter and progress bar to bottom */}
+      {isRandom && (
+        <div style={{ marginTop: 32, textAlign: "center" }}>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+            <TextField
+              type="number"
+              label="Daily Goal"
+              value={dailyGoal}
+              onChange={handleGoalChange}
+              inputProps={{ min: 1, style: { textAlign: 'center', width: 80 } }}
+              size="small"
+              style={{ maxWidth: 120 }}
+            />
+            <Button variant="outlined" color="secondary" onClick={handleResetCounter}>
+              Reset Counter
+            </Button>
+          </div>
+          <Typography variant="subtitle1" style={{ marginBottom: 8 }}>
+            Random questions loaded: {randomCount} / {dailyGoal}
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min((randomCount / dailyGoal) * 100, 100)}
+            style={{ height: 10, borderRadius: 5, maxWidth: 400, margin: "0 auto" }}
+          />
+        </div>
+      )}
+      {/* Snackbar for daily goal */}
+      <Snackbar open={goalOpen} autoHideDuration={4000} onClose={() => setGoalOpen(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert onClose={() => setGoalOpen(false)} severity="success" sx={{ width: '100%' }}>
+          🎉 Daily goal achieved! Great job!
+        </Alert>
+      </Snackbar>
     </div>
   );
 };
